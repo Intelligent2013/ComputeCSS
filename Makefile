@@ -17,6 +17,7 @@ target/$(JAR_FILE):
 	mvn -DskipTests clean package shade:shade
 
 test:
+	java -version
 	mvn test
 
 
