@@ -40,6 +40,10 @@ jobs:
           max_attempts: 3
           command: choco install --no-progress make gnuwin32-coreutils.install
 
+      - if: matrix.os == 'ubuntu-latest' && matrix.java == '1.8'
+        run: sudo apt-get install openjfx
+
+
       - run: make test
 
       - run: make
