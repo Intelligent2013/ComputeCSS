@@ -1,103 +1,60 @@
-package com.mycompany.computecss;
+package com.mycompany.computeCSS;
 
-/*
-import java.io.IOException;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.StringReader;
-import javax.xml.parsers.ParserConfigurationException;
-import com.sun.webkit.dom.DOMWindowImpl;
-import org.w3c.dom.css.CSSStyleDeclaration;
-import org.w3c.dom.Document;
-import org.w3c.dom.html.HTMLDocument;
-import org.w3c.dom.html.HTMLBodyElement;
-import org.w3c.dom.views.DocumentView;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
-*/
-import com.sun.javafx.application.PlatformImpl;
-import javafx.scene.web.WebEngine;
-import org.w3c.dom.*;
-import org.w3c.dom.css.*;
-import org.w3c.dom.events.*;
-import org.w3c.dom.html.*;
-import org.w3c.dom.stylesheets.*;
-import org.w3c.dom.views.*;
-import com.sun.webkit.dom.*;
-import java.io.File;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.scene.Scene;
-import javafx.scene.layout.VBox;
-import javafx.scene.web.HTMLEditor;
-import javafx.scene.web.WebView;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
+
 
 public class ComputeCSS {
 
-    private static WebView view;
+    public static void main(String[] args) throws InterruptedException {
+        // start FX toolkit:
+        new Thread(() -> Application.launch(FXStarter.class)).start();
+        FXStarter.awaitFXToolkit();
+        
+        String css = ".hljs{color:#24292e;background:#fff}.hljs-doctag,.hljs-keyword,.hljs-meta .hljs-keyword,.hljs-template-tag,.hljs-template-variable,.hljs-type,.hljs-variable.language_{color:#d73a49}.hljs-title,.hljs-title.class_,.hljs-title.class_.inherited__,.hljs-title.function_{color:#6f42c1}.hljs-attr,.hljs-attribute,.hljs-literal,.hljs-meta,.hljs-number,.hljs-operator,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-variable{color:#005cc5}.hljs-meta .hljs-string,.hljs-regexp,.hljs-string{color:#032f62}.hljs-built_in,.hljs-symbol{color:#e36209}.hljs-code,.hljs-comment,.hljs-formula{color:#6a737d}.hljs-name,.hljs-quote,.hljs-selector-pseudo,.hljs-selector-tag{color:#22863a}.hljs-subst{color:#24292e}.hljs-section{color:#005cc5;font-weight:700}.hljs-bullet{color:#735c0f}.hljs-emphasis{color:#24292e;font-style:italic}.hljs-strong{color:#24292e;font-weight:700}.hljs-addition{color:#22863a;background-color:#f0fff4}.hljs-deletion{color:#b31d28;background-color:#ffeef0}";
+        String body = "<span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">xi:include</span> <span class=\"hljs-attr\">href</span>=<span class=\"hljs-string\">\"test1.xml\"</span>/&gt;</span>\n" +
+            "<span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">xi:include</span> <span class=\"hljs-attr\">href</span>=<span class=\"hljs-string\">\"test2.xml\"</span>/&gt;</span>";
+        
+        System.out.println("source HTML:\n" + body);
+        
+        String updatedHTML = computeCSS(css, body);
+        System.out.println("updated HTML: \n" + updatedHTML);
+       
+        Platform.exit(); //exit FX toolkit:
+    }    
     
-    public static void main(String[] args)  { //throws SAXException, ParserConfigurationException, IOException 
+    public static String computeCSS(String css, String body) {
+        final StringProperty computedProperty = new SimpleStringProperty();
+        try {
+            final FutureTask query = new FutureTask(new Callable() {
+                @Override
+                public Object call() throws Exception {
+                    Renderer msger = new Renderer(css,body,computedProperty);
+                    msger.renderHtml();
+                    return "";
+                }
+            });
+            Platform.runLater(query);
+            query.get();
 
-        String htmltest = "<!DOCTYPE html>\n" +
-            "<html>\n" +
-            "<head>\n" +
-            "<style>\n" +
-            "body {background-color:blue}\n" +
-            ".header {color:red}\n" +
-            ".par {color:green}\n" +
-            "</style>\n" +
-            "</head>\n" +
-            "<body>\n" +
-            "<h1 class='header'>Header</h1>\n" +
-            "<p class='par'>Text</p>\n" +
-            "</body>\n" +
-            "</html>";
-        
-/*        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        Document doc = builder.parse(new InputSource(new StringReader(htmltest)));
-  */      
-
-        
-        //final Document doc = getDocumentFor("src/test/resources/test/html/dom.html");
-        final Document doc = getDocumentFor(htmltest);
-        
-        
-        
-        
-        HTMLDocument htmlDoc = (HTMLDocument)doc;
-        final HTMLBodyElement body = (HTMLBodyElement)htmlDoc.getBody();
-        
-        // https://stackoverflow.com/questions/11737034/how-to-access-an-external-stylesheet-through-the-document-interface-in-java
-       /* HTMLDocument htmlDoc = (HTMLDocument)doc;
-        
-        final HTMLBodyElement body = (HTMLBodyElement)htmlDoc.getBody();
-        //JS [window] access
-        DOMWindowImpl wnd = (DOMWindowImpl)((DocumentView)htmlDoc).getDefaultView();
-        // Style access
-        CSSStyleDeclaration style = wnd.getComputedStyle(body, "");
-        System.out.println(style.getPropertyValue("background-color"));*/
+            while (computedProperty.get() == null) {
+                try {
+                    Thread.sleep(10); //wait html rendered 10 milliseconds delay
+                } catch(InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+                System.out.println("next attempt...");
+            }
+        } catch (InterruptedException | ExecutionException exc) {
+            Thread.currentThread().interrupt();
+        } finally {
+            Platform.setImplicitExit(true);
+        }
+        return computedProperty.get();
     }
-    
-    
-    static protected Document getDocumentFor(String code) {
-        
-        VBox root = new VBox();
-        final WebView browser = new WebView();
-        root.getChildren().addAll(browser);
-        Scene scene = new Scene(root);
-        
-        /*HTMLEditor htmlEd=new HTMLEditor();
-        String st=htmlEd.getHtmlText();*/
-        
-        WebEngine webEngine=browser.getEngine();
-        
-        //PlatformImpl.startup(null);
-        //view = new WebView();
-        //WebEngine webengine = view.getEngine();
-        webEngine.loadContent(code);
-        return webEngine.getDocument();
-    }
-    
-    
-    
 }
